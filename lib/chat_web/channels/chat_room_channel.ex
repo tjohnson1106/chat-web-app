@@ -3,6 +3,7 @@ defmodule ChatWeb.ChatRoomChannel do
 
   def join("chat_room:lobby", payload, socket) do
     if authorized?(payload) do
+      send(self(), :after_join)
       {:ok, socket}
     else
       {:error, %{reason: "unauthorized"}}
@@ -20,6 +21,18 @@ defmodule ChatWeb.ChatRoomChannel do
   def handle_in("shout", payload, socket) do
     spawn(fn -> save_msg(payload) end)
     broadcast(socket, "shout", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(:after_join, socket) do
+    Chat.Message.get_msgs()
+    |> Enum.each(fn msg ->
+      push(socket, "shout", %{
+        name: msg.name,
+        message: msg.message
+      })
+    end)
+
     {:noreply, socket}
   end
 
